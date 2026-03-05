@@ -3,4 +3,4 @@ tar -xvf BurnInTest_Linux_x86-64.tar.gz
 cd burnintest
 sudo yum install qt5-qtsensors -y
 sudo yum install qt5-qtlocation -y
-./bit_gui_x64
+sudo ./bit_gui_x64
