@@ -136,8 +136,13 @@ To install and open the window in one go, append `&& servburn`.
 
 The installer picks the package that fits the machine - the RPM on
 dnf / yum / zypper systems, the DEB on apt systems, the tarball under
-`/usr/local` elsewhere - and downloads it from the same repo folder it came
-from. Without network access, download the RPM (or DEB) and install it
+`/usr/local` elsewhere - downloads it from the same repo folder it came from,
+and installs the window's runtime libraries from the distribution's own
+repositories (X11, xkbcommon, Mesa with its software GL driver, xauth for
+`ssh -X`) plus `smartmontools`. Afterwards it runs `servburn --check`, which
+lists what the machine has and lacks with the exact package names to install
+if anything is still missing. `SERVBURN_HEADLESS_ONLY=1` skips the window's
+libraries on a box that will only ever run the terminal mode. Without network access, download the RPM (or DEB) and install it
 directly: `sudo dnf install ./servburn-2.0.0-1.x86_64.rpm`. If the files are
 hosted somewhere else, point the installer there with
 `SERVBURN_URL=https://... sudo -E sh install.sh`.
