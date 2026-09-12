@@ -43,8 +43,9 @@ side shows exactly what would run on this machine - cores, memory, the scratch
 file and its filesystem, what will be watched - and the equivalent command line,
 so a run set up by hand can be copied into cron or a provisioning script.
 
-While it runs: a live table per test (rate, total, errors, state), temperature
-and throughput plots, the system line and the log. **Stop** ends the run
+While it runs: a live table per test (rate, total, errors, state), a live
+picture of what the 2D and 3D renderers are drawing, temperature and
+throughput plots, the system line and the log. It fits a 1024x768 console. **Stop** ends the run
 cleanly and still writes the report. At the end: PASS / WARN / FAIL with the
 findings, per-test figures, and a button that opens the HTML report.
 
