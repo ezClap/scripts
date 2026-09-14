@@ -22,7 +22,7 @@ fast; verification tells you it is *correct*, and that is what a burn-in is for.
 | **CPU** | ten kernels per core: SHA-256 / SHA-512 / BLAKE2b / MD5 hashing, CRC32, deflate round-trip, a float64 series, a dense 128x128 float64 matrix multiply, a prime sieve to 2,000,000 and a 61-bit integer chain. Compiled code, so SHA-NI, AVX2/AVX-512 and FMA are reached directly; the report names the extensions the machine has | any kernel returning a different answer - silent data corruption |
 | **Memory** | zeros / ones / 55AA / AA55 / random / address patterns written and read back through a large allocation | a byte that comes back different, reported with pattern and offset |
 | **Disk** | 4 MiB blocks carrying their index and a CRC, written, fsynced, evicted from the page cache, then re-read sequentially and again in butterfly seek order | a CRC mismatch, a misplaced block, or an I/O error |
-| **2D graphics** | lines, filled and outlined rectangles, ellipses, arcs, text and bitmaps drawn through the **X server** into a server-side pixmap shown in its own window, then read back from the server. Headless: the same operations into memory | a frame whose readback hash differs - the server drew a pixel wrong |
+| **2D graphics** | lines, filled and outlined rectangles, ellipses, arcs, text and bitmaps drawn through the **X server** into a server-side pixmap, copied to a small always-on-top window in the bottom-right corner (so the display driver's path to the framebuffer is exercised too), then read back from the server. Headless: the same operations into memory | a frame whose readback hash differs - the server drew a pixel wrong; a blank readback is an error too |
 | **3D graphics** | a lit, textured scene (four 2,464-triangle tori, depth-tested) rendered through **OpenGL** - Mesa's llvmpipe on a server without a GPU, the GPU where there is a driver - and read back every frame. Without Mesa: servburn's own software pipeline | a frame that renders differently than it did before the load |
 | **Network** | 1 MiB TCP blocks, CRC-checked by the far end and echoed back; loopback, or a second machine running `servburn --net-server` | a corrupted block or a dropped connection |
 | **GPU** | repeated matrix products compared element-wise (CuPy / PyTorch / gpu-burn, whichever is present); monitored via nvidia-smi / rocm-smi either way | any element that differs between passes |
@@ -49,11 +49,15 @@ throughput plots, the system line and the log. It fits a 1024x768 console. **Sto
 cleanly and still writes the report. At the end: PASS / WARN / FAIL with the
 findings, per-test figures, and a button that opens the HTML report.
 
-## Safe on a live box
+## Profiles, and running on a machine that is in service
 
-The defaults assume the machine has a job to do:
+The default profile, `burnin`, takes every core at 100% duty, nice 0 - the
+machine is assumed to be yours for the duration (a live image, an acceptance
+test). The other two profiles exist for a box that still has a job to do, and
+some guards apply whichever profile is chosen:
 
-- one core is left alone, workers are niced, the disk test runs at low I/O priority
+- with `standard` one core is left alone and workers are niced; the disk test
+  runs at low I/O priority
 - memory is sized from `MemAvailable`, never from total, and a floor is always
   left free; if the system gets tight mid-run the worker releases its block and
   waits rather than letting the OOM killer pick a victim
@@ -63,7 +67,7 @@ The defaults assume the machine has a job to do:
 - if any sensor passes its limit the run aborts on its own
 - Ctrl-C, SIGTERM or the Stop button stop cleanly and still produce the report
 
-| | `safe` | `standard` (default) | `burnin` |
+| | `safe` | `standard` | `burnin` (default) |
 |---|---|---|---|
 | duty cycle | 60% | 100% | 100% |
 | cores | all but a quarter | all but one | all |
@@ -72,16 +76,23 @@ The defaults assume the machine has a job to do:
 | graphics workers | 1 | 1 | 2 |
 | nice | +15 | +10 | 0 |
 
-`safe` is for a machine under load right now; `burnin` is for hardware that is
-out of service.
+`burnin` is the default: every core, all out, for a machine booted from a live
+image or otherwise out of service. `standard` spares a core and nices the
+workers so the box stays usable; `safe` is for a machine serving traffic.
+
+On a live image note that `/tmp` is usually tmpfs - RAM, not a disk. The plan
+and the report say so in capital letters when the scratch directory is
+RAM-backed; to test the machine's actual drives, mount one and point the disk
+test at it (`mount /dev/sda1 /mnt` then `--disk-path /mnt`, or the "Disk
+directories" field in the window).
 
 ## Terminal use
 
 ```bash
 servburn --preflight                              # print the plan, change nothing
-servburn --headless -d 30m                        # standard profile, confirm, run
-servburn --headless -p safe -d 4h -y -o /var/log/burnin
-servburn --headless -p burnin -d 12h -y           # acceptance test on new hardware
+servburn --headless -d 12h -y                     # full burn-in, every core, every test
+servburn --headless -p standard -d 1h             # one core spared, workers niced
+servburn --headless -p safe -d 4h -y -o /var/log/burnin   # a box serving traffic
 servburn --headless -t cpu,memory,2d,3d -d 1h -y  # just the parts you care about
 servburn --autostart -d 2h                        # open the window and begin at once
 servburn --net-server                             # on host B, then on host A:
@@ -92,7 +103,7 @@ Exit codes: **0** pass, **1** failure (errors found), **2** warnings only,
 **3** could not start. So from a provisioning script:
 
 ```bash
-servburn --headless -p burnin -d 6h -y -o /var/log/burnin || \
+servburn --headless -d 6h -y -o /var/log/burnin || \
   echo "$(hostname) failed burn-in" | mail -s burn-in ops@example.com
 ```
 
