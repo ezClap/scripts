@@ -22,8 +22,8 @@ fast; verification tells you it is *correct*, and that is what a burn-in is for.
 | **CPU** | ten kernels per core: SHA-256 / SHA-512 / BLAKE2b / MD5 hashing, CRC32, deflate round-trip, a float64 series, a dense 128x128 float64 matrix multiply, a prime sieve to 2,000,000 and a 61-bit integer chain. Compiled code, so SHA-NI, AVX2/AVX-512 and FMA are reached directly; the report names the extensions the machine has | any kernel returning a different answer - silent data corruption |
 | **Memory** | zeros / ones / 55AA / AA55 / random / address patterns written and read back through a large allocation | a byte that comes back different, reported with pattern and offset |
 | **Disk** | 4 MiB blocks carrying their index and a CRC, written, fsynced, evicted from the page cache, then re-read sequentially and again in butterfly seek order | a CRC mismatch, a misplaced block, or an I/O error |
-| **2D graphics** | fills, unaligned blits, a whole-surface alpha blend and a large scroll over a 1024x576 framebuffer in memory | a frame whose hash differs - a wrong pixel |
-| **3D graphics** | a full software pipeline: transform, perspective projection, backface culling, depth sort, flat shading and scanline rasterisation of a 2,464-triangle mesh | a frame that renders differently than it did before the load |
+| **2D graphics** | lines, filled and outlined rectangles, ellipses, arcs, text and bitmaps drawn through the **X server** into a server-side pixmap shown in its own window, then read back from the server. Headless: the same operations into memory | a frame whose readback hash differs - the server drew a pixel wrong |
+| **3D graphics** | a lit, textured scene (four 2,464-triangle tori, depth-tested) rendered through **OpenGL** - Mesa's llvmpipe on a server without a GPU, the GPU where there is a driver - and read back every frame. Without Mesa: servburn's own software pipeline | a frame that renders differently than it did before the load |
 | **Network** | 1 MiB TCP blocks, CRC-checked by the far end and echoed back; loopback, or a second machine running `servburn --net-server` | a corrupted block or a dropped connection |
 | **GPU** | repeated matrix products compared element-wise (CuPy / PyTorch / gpu-burn, whichever is present); monitored via nvidia-smi / rocm-smi either way | any element that differs between passes |
 
@@ -119,7 +119,8 @@ misbehaves.
 | CPU maths, primes, matrix, float, compression, encryption, extended instructions | `cpu`, all verified; SIMD reached through compiled hashing and the vectorised matrix multiply |
 | RAM | `memory`, with a live-system floor BurnInTest has no equivalent of |
 | Disk incl. butterfly seek | `disk` |
-| 2D / 3D graphics | rendered into memory (a server has no windowing system to draw on); every frame verified. A real GL renderer can be driven instead with `--gfx3d-cmd`, at the cost of verification |
+| 2D graphics (X11 drawing, readback) | `2d` - the same Xlib primitives into a pixmap and window, read back and hashed |
+| 3D graphics (OpenGL scene) | `3d` - a lit, textured scene through OpenGL, read back and hashed; on a GPU-less server that is Mesa llvmpipe for both tools. `--gfx-software` forces the in-memory renderers; `--gfx3d-cmd` drives an external one such as glmark2 |
 | Network | `net`, with a real peer mode |
 | Temperature / max temperature | continuous, with automatic abort and the vendor's trip points |
 | SMART, ECC, MCE | diffed across the run - BurnInTest reports them, it does not diff them |

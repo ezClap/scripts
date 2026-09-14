@@ -90,12 +90,14 @@ install_rpm() {
         install_runtime rpm $RPM_RUNTIME
     fi
     pkg=$(fetch "servburn-$VERSION-1.x86_64.rpm")
+    # --replacepkgs: the same version already on the box (an earlier copy of
+    # this package) is overwritten rather than reported as "already installed".
     if command -v dnf >/dev/null 2>&1; then
-        dnf install -y "$pkg"
+        rpm -q servburn >/dev/null 2>&1 && dnf reinstall -y "$pkg" || dnf install -y "$pkg"
     elif command -v zypper >/dev/null 2>&1; then
-        zypper --non-interactive install --allow-unsigned-rpm "$pkg"
+        zypper --non-interactive install --force --allow-unsigned-rpm "$pkg"
     else
-        yum install -y "$pkg"
+        rpm -q servburn >/dev/null 2>&1 && rpm -Uvh --replacepkgs "$pkg" || yum install -y "$pkg"
     fi
 }
 
@@ -105,11 +107,8 @@ install_deb() {
         install_runtime deb $DEB_RUNTIME
     fi
     pkg=$(fetch "servburn_${VERSION}_amd64.deb")
-    if command -v apt-get >/dev/null 2>&1; then
-        apt-get install -y "$pkg" 2>/dev/null || { dpkg -i "$pkg" || apt-get install -f -y; }
-    else
-        dpkg -i "$pkg"
-    fi
+    # dpkg -i happily reinstalls the same version; apt-get would not
+    dpkg -i "$pkg" || apt-get install -f -y
 }
 
 install_tarball() {
